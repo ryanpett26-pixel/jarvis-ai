@@ -4,6 +4,3 @@ psutil
 pygame
 requests
 ollama
-numpy
-opencv-python
-pillow
