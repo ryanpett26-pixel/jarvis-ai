@@ -19,14 +19,15 @@ pygame.display.set_caption("JARVIS AI")
 
 # Particle simulation for orb
 class Particle:
-    def __init__(self):
-        self.reset()
+    def __init__(self, x=400, y=300, speed=4):
+        self.x = x
+        self.y = y
+        self.vx = (random.random() - 0.5) * speed
+        self.vy = (random.random() - 0.5) * speed
+        self.life = random.randint(80, 120)
+
     def reset(self):
-        self.x = 400
-        self.y = 300
-        self.vx = (random.random() - 0.5) * 4
-        self.vy = (random.random() - 0.5) * 4
-        self.life = 100
+        self.__init__()
 
 particles = [Particle() for _ in range(200)]
 
@@ -38,13 +39,20 @@ def speak(text):
 def listen():
     with sr.Microphone() as source:
         print("Listening...")
-        audio = recognizer.listen(source, timeout=5)
-    try:
-        text = recognizer.recognize_google(audio).lower()
-        print("You:", text)
-        return text
-    except:
-        return ""
+        try:
+            audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
+            text = recognizer.recognize_google(audio).lower()
+            print("You:", text)
+            return text
+        except sr.WaitTimeoutError:
+            print("Timeout: No voice detected.")
+            return "timeout"
+        except sr.UnknownValueError:
+            print("Could not understand audio.")
+            return "error"
+        except sr.RequestError as e:
+            print(f"Google Speech API error: {e}")
+            return "api_error"
 
 def get_system_diagnostics():
     cpu = psutil.cpu_percent()
@@ -60,21 +68,29 @@ def run_diagnostics():
         time.sleep(0.5)
     speak("All systems nominal.")
 
+def process_command(command):
+    if "diagnostics" in command:
+        run_diagnostics()
+    elif "time" in command:
+        speak(datetime.now().strftime("%I:%M %p"))
+    elif "exit" in command or "quit" in command:
+        global running
+        running = False
+        speak("Shutting down. Goodbye!")
+    else:
+        try:
+            response = ollama.chat(model='llama3', messages=[{'role': 'user', 'content': command}])
+            speak(response['message']['content'])
+        except Exception as e:
+            print(f"Ollama error: {e}")
+            speak("Sorry, I can't process this command right now.")
+
 def main_loop():
     speak("Jarvis online. How can I assist you today?")
-    while True:
+    while running:
         command = listen()
-        if "jarvis" in command or "you up" in command:
-            if "diagnostics" in command:
-                run_diagnostics()
-            elif "time" in command:
-                speak(datetime.now().strftime("%I:%M %p"))
-            else:
-                try:
-                    response = ollama.chat(model='llama3', messages=[{'role': 'user', 'content': command}])
-                    speak(response['message']['content'])
-                except:
-                    speak("I'm here to help. What would you like?")
+        if command not in ["timeout", "error", "api_error"]:
+            process_command(command)
         time.sleep(1)
 
 if __name__ == "__main__":
@@ -85,6 +101,7 @@ if __name__ == "__main__":
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                speak("Shutting down. Goodbye!")
         screen.fill((0, 0, 0))
         for p in particles:
             p.x += p.vx
