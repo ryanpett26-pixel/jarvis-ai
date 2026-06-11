@@ -1,115 +1,96 @@
+import kivy
+kivy.require('2.0.0')
+
+from kivy.app import App
+from kivy.uix.widget import Widget
+from kivy.graphics import Color, Ellipse
+from kivy.clock import Clock
+from kivy.core.window import Window
 import speech_recognition as sr
 import pyttsx3
 import psutil
-import pygame
-import time
 import threading
-import requests
-import ollama
-from datetime import datetime
+import time
 import random
+from datetime import datetime
+import ollama
 
-# Initialize
-engine = pyttsx3.init()
-recognizer = sr.Recognizer()
+Window.size = (400, 600)
+Window.clearcolor = (0, 0, 0, 1)
 
-pygame.init()
-screen = pygame.display.set_mode((800, 600))
-pygame.display.set_caption("JARVIS AI")
+class JarvisOrb(Widget):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.particles = []
+        Clock.schedule_interval(self.update, 1/30.)
 
-# Particle simulation for orb
-class Particle:
-    def __init__(self, x=400, y=300, speed=4):
-        self.x = x
-        self.y = y
-        self.vx = (random.random() - 0.5) * speed
-        self.vy = (random.random() - 0.5) * speed
-        self.life = random.randint(80, 120)
+    def update(self, dt):
+        self.canvas.clear()
+        with self.canvas:
+            for p in self.particles[:]:
+                p['life'] -= 1
+                p['x'] += p['vx']
+                p['y'] += p['vy']
+                if p['life'] <= 0:
+                    self.particles.remove(p)
+                    continue
+                Color(0, 1, random.random(), 0.8)
+                Ellipse(pos=(p['x']-5, p['y']-5), size=(10,10))
+        if len(self.particles) < 50:
+            self.particles.append({
+                'x': 200, 'y': 300,
+                'vx': random.uniform(-3,3),
+                'vy': random.uniform(-3,3),
+                'life': random.randint(30,60)
+            })
 
-    def reset(self):
-        self.__init__()
+class JarvisApp(App):
+    def build(self):
+        self.root = JarvisOrb()
+        threading.Thread(target=self.voice_thread, daemon=True).start()
+        return self.root
 
-particles = [Particle() for _ in range(200)]
+    def speak(self, text):
+        print("JARVIS:", text)
+        engine = pyttsx3.init()
+        engine.say(text)
+        engine.runAndWait()
 
-def speak(text):
-    print("JARVIS:", text)
-    engine.say(text)
-    engine.runAndWait()
+    def listen(self):
+        r = sr.Recognizer()
+        with sr.Microphone() as source:
+            audio = r.listen(source, timeout=5)
+            try:
+                return r.recognize_google(audio).lower()
+            except:
+                return None
 
-def listen():
-    with sr.Microphone() as source:
-        print("Listening...")
-        try:
-            audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
-            text = recognizer.recognize_google(audio).lower()
-            print("You:", text)
-            return text
-        except sr.WaitTimeoutError:
-            print("Timeout: No voice detected.")
-            return "timeout"
-        except sr.UnknownValueError:
-            print("Could not understand audio.")
-            return "error"
-        except sr.RequestError as e:
-            print(f"Google Speech API error: {e}")
-            return "api_error"
+    def process_command(self, cmd):
+        if "time" in cmd:
+            self.speak(datetime.now().strftime("%I:%M %p"))
+        elif "diagnostics" in cmd or "status" in cmd:
+            cpu = psutil.cpu_percent()
+            mem = psutil.virtual_memory().percent
+            self.speak(f"CPU {cpu}%, Memory {mem}%")
+        elif "joke" in cmd:
+            self.speak("Why did the AI cross the road? To optimize the other side!")
+        else:
+            try:
+                resp = ollama.chat(model='llama3', messages=[{'role': 'user', 'content': cmd}])
+                self.speak(resp['message']['content'])
+            except:
+                self.speak("I'm here, sir.")
 
-def get_system_diagnostics():
-    cpu = psutil.cpu_percent()
-    mem = psutil.virtual_memory().percent
-    return f"CPU: {cpu}%, Memory: {mem}%"
+    def voice_thread(self):
+        self.speak("Jarvis online. Say Jarvis to activate.")
+        while True:
+            cmd = self.listen()
+            if cmd and "jarvis" in cmd:
+                self.speak("At your service.")
+                follow = self.listen()
+                if follow:
+                    self.process_command(follow)
+            time.sleep(1)
 
-def run_diagnostics():
-    speak("Running full system diagnostics.")
-    diag = get_system_diagnostics()
-    speak(diag)
-    for i in range(10, 101, 20):
-        print(f"Diagnostics: {i}%")
-        time.sleep(0.5)
-    speak("All systems nominal.")
-
-def process_command(command):
-    if "diagnostics" in command:
-        run_diagnostics()
-    elif "time" in command:
-        speak(datetime.now().strftime("%I:%M %p"))
-    elif "exit" in command or "quit" in command:
-        global running
-        running = False
-        speak("Shutting down. Goodbye!")
-    else:
-        try:
-            response = ollama.chat(model='llama3', messages=[{'role': 'user', 'content': command}])
-            speak(response['message']['content'])
-        except Exception as e:
-            print(f"Ollama error: {e}")
-            speak("Sorry, I can't process this command right now.")
-
-def main_loop():
-    speak("Jarvis online. How can I assist you today?")
-    while running:
-        command = listen()
-        if command not in ["timeout", "error", "api_error"]:
-            process_command(command)
-        time.sleep(1)
-
-if __name__ == "__main__":
-    threading.Thread(target=main_loop, daemon=True).start()
-    running = True
-    clock = pygame.time.Clock()
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-                speak("Shutting down. Goodbye!")
-        screen.fill((0, 0, 0))
-        for p in particles:
-            p.x += p.vx
-            p.y += p.vy
-            p.life -= 1
-            if p.life <= 0:
-                p.reset()
-            pygame.draw.circle(screen, (0, 255, 255), (int(p.x), int(p.y)), 3)
-        pygame.display.flip()
-        clock.tick(30)
-    pygame.quit()
+if __name__ == '__main__':
+    JarvisApp().run()
