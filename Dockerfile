@@ -1,23 +1,37 @@
-# Dockerfile for JARVIS AI
-FROM python:3.9-slim
-
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install packages
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Copy requirements and install dependencies
-COPY requirements.txt ./
+# Install system dependencies for audio and microphone support
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    espeak \
+    alsa-utils \
+    portaudio19-dev \
+    libpulse-dev \
+    pulseaudio \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and install build tools
+RUN pip install --upgrade pip setuptools wheel
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app source code
-COPY . .
+# Copy application
+COPY main.py .
+COPY setup.sh .
 
-# Command to run the application
-CMD ["python", "main.py"]
+# Ensure scripts are executable
+RUN chmod +x main.py
+
+# Set environment variables for Ollama
+ENV OLLAMA_HOST=http://host.docker.internal:11434
+
+# Expose port for potential future web UI
+EXPOSE 5000
+
+# Run the application
+CMD ["python3", "main.py"]

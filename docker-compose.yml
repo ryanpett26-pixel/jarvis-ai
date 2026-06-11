@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  jarvis-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jarvis-ai
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - /dev/snd:/dev/snd  # Audio device access
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw  # X11 display for GUI (optional)
+    devices:
+      - /dev/snd  # Audio device
+    privileged: false
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    networks:
+      - jarvis-network
+
+  # Optional: Ollama service (if running locally)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - jarvis-network
+    restart: unless-stopped
+
+networks:
+  jarvis-network:
+    driver: bridge
+
+volumes:
+  ollama_data:
