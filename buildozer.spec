@@ -2,31 +2,24 @@
 
 title = Jarvis AI
 package.name = jarvisai
-package.domain = org.jarvis
-
+package.domain = org.ryanpett26
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas
+version = 0.1.0
 
-version = 1.0
+requirements = python3,kivy==2.3.0,plyer,speechrecognition,pyttsx3,psutil,ollama,requests
 
-requirements = python3,kivy==2.3.0,speechrecognition,pyttsx3,psutil,ollama,requests
+android.permissions = INTERNET,RECORD_AUDIO,WAKE_LOCK,FOREGROUND_SERVICE,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
 
-orientation = portrait
-
-osx.python_version = 3
-
-fullscreen = 0
-
-# Android specific
-android.permissions = INTERNET,RECORD_AUDIO,WAKE_LOCK
 android.api = 34
 android.minapi = 21
 android.ndk_api = 24
 android.archs = arm64-v8a,armeabi-v7a
+
 p4a.branch = develop
 
-# For signing
+# Signing
 android.release = true
 
-# Additional optimizations
-buildozer.warn_on_root = 0
+# Other optimizations
+orientation = portrait
+fullscreen = 0
