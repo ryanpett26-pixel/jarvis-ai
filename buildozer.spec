@@ -19,5 +19,11 @@ fullscreen = 0
 
 # Android specific
 android.permissions = INTERNET,RECORD_AUDIO,WAKE_LOCK
-android.api = 33
+android.api = 34
 android.minapi = 21
+android.ndk_api = 24
+android.archs = arm64-v8a,armeabi-v7a
+p4a.branch = develop
+
+# For signing
+android.release = true
