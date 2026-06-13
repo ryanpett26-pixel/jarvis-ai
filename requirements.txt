@@ -1,6 +1,10 @@
-kivy==2.3.0
+kivy
 speechrecognition
 pyttsx3
 psutil
 ollama
-requests
+crewai
+chromadb
+fastapi
+uvicorn
+websockets
