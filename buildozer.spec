@@ -27,3 +27,6 @@ p4a.branch = develop
 
 # For signing
 android.release = true
+
+# Additional optimizations
+buildozer.warn_on_root = 0
